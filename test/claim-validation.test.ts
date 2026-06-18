@@ -66,6 +66,36 @@ describe("validateToken claim validation", () => {
     ).rejects.toBeInstanceOf(TokenExpiredError);
   });
 
+  it("throws TokenExpiredError when exp is missing", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+
+    const context = tokenContext("missing-exp");
+    const token = context.sign({
+      sub: "user_123",
+      iss: ISSUER,
+      aud: AUDIENCE
+    });
+    stubFetch(jwksResponse({ keys: [context.publicJwk] }));
+
+    await expect(
+      validateToken(token, optionsFor("missing-exp"))
+    ).rejects.toBeInstanceOf(TokenExpiredError);
+  });
+
+  it("throws TokenExpiredError when exp is not numeric", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+
+    const context = tokenContext("non-numeric-exp");
+    const token = context.sign(validPayload({ exp: "1893456000" }));
+    stubFetch(jwksResponse({ keys: [context.publicJwk] }));
+
+    await expect(
+      validateToken(token, optionsFor("non-numeric-exp"))
+    ).rejects.toBeInstanceOf(TokenExpiredError);
+  });
+
   it("accepts exp within the configured clock skew", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
@@ -90,6 +120,19 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("nbf-future"))
+    ).rejects.toBeInstanceOf(TokenNotYetValidError);
+  });
+
+  it("throws TokenNotYetValidError when nbf is not numeric", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+
+    const context = tokenContext("non-numeric-nbf");
+    const token = context.sign(validPayload({ nbf: "1893456000" }));
+    stubFetch(jwksResponse({ keys: [context.publicJwk] }));
+
+    await expect(
+      validateToken(token, optionsFor("non-numeric-nbf"))
     ).rejects.toBeInstanceOf(TokenNotYetValidError);
   });
 
@@ -145,6 +188,19 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("audience-array-mismatch"))
+    ).rejects.toBeInstanceOf(AudienceMismatchError);
+  });
+
+  it("throws AudienceMismatchError when aud is not a string or string array", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+
+    const context = tokenContext("malformed-audience");
+    const token = context.sign(validPayload({ aud: [AUDIENCE, 123] }));
+    stubFetch(jwksResponse({ keys: [context.publicJwk] }));
+
+    await expect(
+      validateToken(token, optionsFor("malformed-audience"))
     ).rejects.toBeInstanceOf(AudienceMismatchError);
   });
 
