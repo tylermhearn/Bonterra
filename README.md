@@ -108,11 +108,39 @@ The tests mock `fetch`; no test makes a real HTTP request. Coverage includes:
 - HS256 rejection even when JWKS contains only RS256 keys.
 - String and array audience handling.
 
+## Part 2: Authorization Middleware
+
+`src/app.ts` implements the authorization layer for the document API using the Part 1 validator.
+
+Middleware:
+
+- `requireAuth(options)`: validates a strict `Authorization: Bearer <token>` header and attaches the decoded payload to `req.auth`.
+- `requireScopes(...scopes)`: requires every listed scope to be present in the space-delimited `scope` claim.
+- `requireRole(role)`: requires the namespaced `https://example.com/roles` claim to contain the requested role.
+
+Routes:
+
+- `GET /api/documents`: returns only the authenticated user's documents.
+- `GET /api/documents/:id`: allows the owner or an auditor.
+- `POST /api/documents`: requires `documents:write`.
+- `DELETE /api/documents/:id`: allows the owner only; auditors cannot delete.
+
+Ownership checks happen inside route handlers because ownership is resource-specific. The handler has access to the loaded document and can compare its `ownerSub` with `req.auth.sub`; generic middleware should not guess how each route models ownership or load route-specific data.
+
+Authentication failures return stable error bodies:
+
+- Missing token: `{ "error": "missing_token" }`
+- Invalid token: `{ "error": "invalid_token", "reason": "<typed error name>" }`
+- Missing scope: `{ "error": "insufficient_scope" }`
+- Missing role: `{ "error": "insufficient_role" }`
+- Not owner: `{ "error": "forbidden" }`
+
+The invalid-token response exposes only the typed Part 1 error name, not raw exception messages or stack traces. That gives clients enough information to react while avoiding disclosure of parser internals, key IDs beyond the request context, or infrastructure details.
+
 ## Submission Notes
 
-This repository currently contains Part 1. Later parts should add:
+This repository currently contains Parts 1 and 2. Later parts should add:
 
-- Express authorization middleware and document routes.
 - `RESPONSES.md` for written OAuth2/security answers.
 - `REVIEW.md` for the vulnerability review.
 
