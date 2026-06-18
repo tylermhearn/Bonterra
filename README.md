@@ -111,6 +111,7 @@ The tests mock `fetch`; no test makes a real HTTP request. Coverage includes:
 ## Part 2: Authorization Middleware
 
 `src/app.ts` implements the authorization layer for the document API using the Part 1 validator.
+It intentionally uses in-memory stub document records instead of a database so the exercise stays focused on authentication and authorization behavior.
 
 Middleware:
 
@@ -125,7 +126,7 @@ Routes:
 - `POST /api/documents`: requires `documents:write`.
 - `DELETE /api/documents/:id`: allows the owner only; auditors cannot delete.
 
-Ownership checks happen inside route handlers because ownership is resource-specific. The handler has access to the loaded document and can compare its `ownerSub` with `req.auth.sub`; generic middleware should not guess how each route models ownership or load route-specific data.
+Ownership checks happen inside route handlers because ownership is resource-specific. The handler has access to the loaded document and can compare its `ownerSub` with `req.auth.sub`; generic middleware should not guess how each route models ownership or load route-specific data. That keeps the reusable middleware limited to token validation, scopes, and roles, while the route stays responsible for resource-aware authorization decisions.
 
 Authentication failures return stable error bodies:
 
@@ -136,6 +137,14 @@ Authentication failures return stable error bodies:
 - Not owner: `{ "error": "forbidden" }`
 
 The invalid-token response exposes only the typed Part 1 error name, not raw exception messages or stack traces. That gives clients enough information to react while avoiding disclosure of parser internals, key IDs beyond the request context, or infrastructure details.
+
+Part 2 tests cover:
+
+- strict missing-token and invalid-token responses
+- scope and role middleware failures
+- owner-only listing and deletion behavior
+- auditor read access without auditor delete access
+- route-handler ownership enforcement instead of middleware-owned resource checks
 
 ## Submission Notes
 
