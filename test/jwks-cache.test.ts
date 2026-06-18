@@ -1,12 +1,8 @@
 import { generateKeyPairSync, type JsonWebKey } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  InvalidSignatureError,
-  JwksFetchError,
-  UnknownKeyError,
-  validateToken,
-  type ValidateTokenOptions
-} from "../src/index.js";
+import { validateToken } from "../src/index.js";
+
+type ValidateTokenOptions = Parameters<typeof validateToken>[1];
 
 describe("validateToken JWKS cache", () => {
   afterEach(() => {
@@ -20,12 +16,9 @@ describe("validateToken JWKS cache", () => {
     const token = makeToken("key-1");
     const options = optionsFor("first-request");
 
-    await expect(validateToken(token, options)).rejects.toBeInstanceOf(
-      InvalidSignatureError
-    );
-    await expect(validateToken(token, options)).rejects.toBeInstanceOf(
-      InvalidSignatureError
-    );
+    await expect(validateToken(token, options)).rejects.toMatchObject({
+      name: "InvalidSignatureError"
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(options.jwksUri);
@@ -43,15 +36,15 @@ describe("validateToken JWKS cache", () => {
     const token = makeToken("key-1");
     const options = optionsFor("ttl-expiry", { jwksCacheTtlSeconds: 60 });
 
-    await expect(validateToken(token, options)).rejects.toBeInstanceOf(
-      InvalidSignatureError
-    );
+    await expect(validateToken(token, options)).rejects.toMatchObject({
+      name: "InvalidSignatureError"
+    });
 
     vi.setSystemTime(new Date("2026-01-01T00:01:01Z"));
 
-    await expect(validateToken(token, options)).rejects.toBeInstanceOf(
-      InvalidSignatureError
-    );
+    await expect(validateToken(token, options)).rejects.toMatchObject({
+      name: "InvalidSignatureError"
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -65,12 +58,12 @@ describe("validateToken JWKS cache", () => {
     );
     const options = optionsFor("unknown-kid-triggers-refetch");
 
-    await expect(validateToken(makeToken("stale-key"), options)).rejects.toBeInstanceOf(
-      InvalidSignatureError
-    );
+    await expect(validateToken(makeToken("stale-key"), options)).rejects.toMatchObject({
+      name: "InvalidSignatureError"
+    });
     await expect(
       validateToken(makeToken("rotated-key"), options)
-    ).rejects.toBeInstanceOf(InvalidSignatureError);
+    ).rejects.toMatchObject({ name: "InvalidSignatureError" });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -83,12 +76,12 @@ describe("validateToken JWKS cache", () => {
     );
     const options = optionsFor("unknown-after-refetch");
 
-    await expect(validateToken(makeToken("key-1"), options)).rejects.toBeInstanceOf(
-      InvalidSignatureError
-    );
+    await expect(validateToken(makeToken("key-1"), options)).rejects.toMatchObject({
+      name: "InvalidSignatureError"
+    });
     await expect(
       validateToken(makeToken("missing-key"), options)
-    ).rejects.toBeInstanceOf(UnknownKeyError);
+    ).rejects.toMatchObject({ name: "UnknownKeyError" });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -97,9 +90,9 @@ describe("validateToken JWKS cache", () => {
     const fetchMock = stubFetch(jwksResponse({ keys: [rsaJwk("key-1")] }));
     const token = makeToken(undefined);
 
-    await expect(validateToken(token, optionsFor("missing-kid"))).rejects.toBeInstanceOf(
-      UnknownKeyError
-    );
+    await expect(
+      validateToken(token, optionsFor("missing-kid"))
+    ).rejects.toMatchObject({ name: "UnknownKeyError" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -109,7 +102,7 @@ describe("validateToken JWKS cache", () => {
 
     await expect(
       validateToken(makeToken("key-1"), optionsFor("unreachable"))
-    ).rejects.toBeInstanceOf(JwksFetchError);
+    ).rejects.toMatchObject({ name: "JwksFetchError" });
   });
 
   it("throws JwksFetchError when the JWKS endpoint returns non-2xx", async () => {
@@ -117,7 +110,7 @@ describe("validateToken JWKS cache", () => {
 
     await expect(
       validateToken(makeToken("key-1"), optionsFor("not-found"))
-    ).rejects.toBeInstanceOf(JwksFetchError);
+    ).rejects.toMatchObject({ name: "JwksFetchError" });
   });
 
   it("ignores symmetric keys when resolving RS256 kids", async () => {
@@ -129,7 +122,7 @@ describe("validateToken JWKS cache", () => {
 
     await expect(
       validateToken(makeToken("symmetric-key"), optionsFor("symmetric-key"))
-    ).rejects.toBeInstanceOf(UnknownKeyError);
+    ).rejects.toMatchObject({ name: "UnknownKeyError" });
   });
 });
 

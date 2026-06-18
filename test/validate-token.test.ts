@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  MalformedTokenError,
-  UnsupportedAlgorithmError,
-  validateToken,
-  type ValidateTokenOptions
-} from "../src/index.js";
+import { validateToken } from "../src/index.js";
+
+type ValidateTokenOptions = Parameters<typeof validateToken>[1];
 
 const OPTIONS: ValidateTokenOptions = {
   jwksUri: "https://auth.example.com/.well-known/jwks.json",
@@ -18,17 +15,13 @@ describe("validateToken parsing and algorithm checks", () => {
   });
 
   it("throws MalformedTokenError when the token does not have three segments", async () => {
-    await expect(validateToken("header.payload", OPTIONS)).rejects.toBeInstanceOf(
-      MalformedTokenError
-    );
+    await expectErrorName(validateToken("header.payload", OPTIONS), "MalformedTokenError");
   });
 
   it("throws MalformedTokenError when a segment is not base64url encoded", async () => {
     const token = `not+base64url.${encodeJson({ sub: "user_123" })}.signature`;
 
-    await expect(validateToken(token, OPTIONS)).rejects.toBeInstanceOf(
-      MalformedTokenError
-    );
+    await expectErrorName(validateToken(token, OPTIONS), "MalformedTokenError");
   });
 
   it("throws MalformedTokenError when the header is not valid JSON", async () => {
@@ -36,9 +29,7 @@ describe("validateToken parsing and algorithm checks", () => {
       sub: "user_123"
     })}.signature`;
 
-    await expect(validateToken(token, OPTIONS)).rejects.toBeInstanceOf(
-      MalformedTokenError
-    );
+    await expectErrorName(validateToken(token, OPTIONS), "MalformedTokenError");
   });
 
   it("throws MalformedTokenError when the payload is not a JSON object", async () => {
@@ -46,25 +37,19 @@ describe("validateToken parsing and algorithm checks", () => {
       "[]"
     )}.signature`;
 
-    await expect(validateToken(token, OPTIONS)).rejects.toBeInstanceOf(
-      MalformedTokenError
-    );
+    await expectErrorName(validateToken(token, OPTIONS), "MalformedTokenError");
   });
 
   it("throws UnsupportedAlgorithmError for alg none", async () => {
     const token = makeToken({ alg: "none", kid: "key-1" });
 
-    await expect(validateToken(token, OPTIONS)).rejects.toBeInstanceOf(
-      UnsupportedAlgorithmError
-    );
+    await expectErrorName(validateToken(token, OPTIONS), "UnsupportedAlgorithmError");
   });
 
   it("throws UnsupportedAlgorithmError for HS256", async () => {
     const token = makeToken({ alg: "HS256", kid: "key-1" });
 
-    await expect(validateToken(token, OPTIONS)).rejects.toBeInstanceOf(
-      UnsupportedAlgorithmError
-    );
+    await expectErrorName(validateToken(token, OPTIONS), "UnsupportedAlgorithmError");
   });
 
   it("does not fetch JWKS before rejecting an unsupported algorithm", async () => {
@@ -73,20 +58,23 @@ describe("validateToken parsing and algorithm checks", () => {
 
     const token = makeToken({ alg: "ES256", kid: "key-1" });
 
-    await expect(validateToken(token, OPTIONS)).rejects.toBeInstanceOf(
-      UnsupportedAlgorithmError
-    );
+    await expectErrorName(validateToken(token, OPTIONS), "UnsupportedAlgorithmError");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("throws UnsupportedAlgorithmError when alg is missing", async () => {
     const token = makeToken({ kid: "key-1" });
 
-    await expect(validateToken(token, OPTIONS)).rejects.toBeInstanceOf(
-      UnsupportedAlgorithmError
-    );
+    await expectErrorName(validateToken(token, OPTIONS), "UnsupportedAlgorithmError");
   });
 });
+
+async function expectErrorName(
+  promise: Promise<unknown>,
+  expectedName: string
+): Promise<void> {
+  await expect(promise).rejects.toMatchObject({ name: expectedName });
+}
 
 function makeToken(
   header: Record<string, unknown>,

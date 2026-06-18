@@ -5,7 +5,7 @@ import {
   type KeyObject
 } from "node:crypto";
 
-export interface ValidateTokenOptions {
+interface ValidateTokenOptions {
   jwksUri: string;
   issuer: string;
   audience: string;
@@ -13,7 +13,7 @@ export interface ValidateTokenOptions {
   jwksCacheTtlSeconds?: number;
 }
 
-export type JwtPayload = Record<string, unknown>;
+type JwtPayload = Record<string, unknown>;
 
 interface JwtHeader extends Record<string, unknown> {
   alg?: unknown;
@@ -31,6 +31,7 @@ interface JwksKey extends Record<string, unknown> {
 interface CachedJwks {
   fetchedAtMs: number;
   keys: Map<string, KeyObject>;
+  lastUnknownKidRefetchAtMs?: number;
 }
 
 interface ParsedToken {
@@ -43,24 +44,25 @@ interface ParsedToken {
 const ALLOWED_ALGORITHMS = new Set(["RS256"]);
 const DEFAULT_CLOCK_SKEW_SECONDS = 30;
 const DEFAULT_JWKS_CACHE_TTL_SECONDS = 300;
+const UNKNOWN_KID_REFETCH_COOLDOWN_MS = 30_000;
 const jwksCache = new Map<string, CachedJwks>();
 
-export class JwtValidationError extends Error {
+class JwtValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = new.target.name;
   }
 }
 
-export class MalformedTokenError extends JwtValidationError {}
-export class UnsupportedAlgorithmError extends JwtValidationError {}
-export class UnknownKeyError extends JwtValidationError {}
-export class InvalidSignatureError extends JwtValidationError {}
-export class TokenExpiredError extends JwtValidationError {}
-export class TokenNotYetValidError extends JwtValidationError {}
-export class IssuerMismatchError extends JwtValidationError {}
-export class AudienceMismatchError extends JwtValidationError {}
-export class JwksFetchError extends JwtValidationError {}
+class MalformedTokenError extends JwtValidationError {}
+class UnsupportedAlgorithmError extends JwtValidationError {}
+class UnknownKeyError extends JwtValidationError {}
+class InvalidSignatureError extends JwtValidationError {}
+class TokenExpiredError extends JwtValidationError {}
+class TokenNotYetValidError extends JwtValidationError {}
+class IssuerMismatchError extends JwtValidationError {}
+class AudienceMismatchError extends JwtValidationError {}
+class JwksFetchError extends JwtValidationError {}
 
 /**
  * Validates a JWT and returns the decoded payload.
@@ -133,7 +135,16 @@ async function resolveJwksKey(
       return cachedKey;
     }
 
+    if (
+      cachedJwks.lastUnknownKidRefetchAtMs !== undefined &&
+      Date.now() - cachedJwks.lastUnknownKidRefetchAtMs <
+        UNKNOWN_KID_REFETCH_COOLDOWN_MS
+    ) {
+      throw new UnknownKeyError(`No JWKS key found for kid: ${kid}`);
+    }
+
     const refreshedJwks = await fetchAndCacheJwks(options.jwksUri);
+    refreshedJwks.lastUnknownKidRefetchAtMs = Date.now();
     const refreshedKey = refreshedJwks.keys.get(kid);
 
     if (refreshedKey) {

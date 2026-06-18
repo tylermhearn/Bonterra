@@ -5,14 +5,9 @@ import {
   type KeyObject
 } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  AudienceMismatchError,
-  IssuerMismatchError,
-  TokenExpiredError,
-  TokenNotYetValidError,
-  validateToken,
-  type ValidateTokenOptions
-} from "../src/index.js";
+import { validateToken } from "../src/index.js";
+
+type ValidateTokenOptions = Parameters<typeof validateToken>[1];
 
 const ISSUER = "https://auth.example.com/";
 const AUDIENCE = "https://api.example.com";
@@ -63,7 +58,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("expired"))
-    ).rejects.toBeInstanceOf(TokenExpiredError);
+    ).rejects.toMatchObject({ name: "TokenExpiredError" });
   });
 
   it("throws TokenExpiredError when exp is missing", async () => {
@@ -80,7 +75,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("missing-exp"))
-    ).rejects.toBeInstanceOf(TokenExpiredError);
+    ).rejects.toMatchObject({ name: "TokenExpiredError" });
   });
 
   it("throws TokenExpiredError when exp is not numeric", async () => {
@@ -93,7 +88,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("non-numeric-exp"))
-    ).rejects.toBeInstanceOf(TokenExpiredError);
+    ).rejects.toMatchObject({ name: "TokenExpiredError" });
   });
 
   it("accepts exp within the configured clock skew", async () => {
@@ -120,7 +115,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("nbf-future"))
-    ).rejects.toBeInstanceOf(TokenNotYetValidError);
+    ).rejects.toMatchObject({ name: "TokenNotYetValidError" });
   });
 
   it("throws TokenNotYetValidError when nbf is not numeric", async () => {
@@ -133,7 +128,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("non-numeric-nbf"))
-    ).rejects.toBeInstanceOf(TokenNotYetValidError);
+    ).rejects.toMatchObject({ name: "TokenNotYetValidError" });
   });
 
   it("accepts nbf within the configured clock skew", async () => {
@@ -160,7 +155,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("issuer-mismatch"))
-    ).rejects.toBeInstanceOf(IssuerMismatchError);
+    ).rejects.toMatchObject({ name: "IssuerMismatchError" });
   });
 
   it("throws AudienceMismatchError when aud string does not match", async () => {
@@ -173,7 +168,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("audience-string-mismatch"))
-    ).rejects.toBeInstanceOf(AudienceMismatchError);
+    ).rejects.toMatchObject({ name: "AudienceMismatchError" });
   });
 
   it("throws AudienceMismatchError when aud array does not contain the expected audience", async () => {
@@ -188,7 +183,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("audience-array-mismatch"))
-    ).rejects.toBeInstanceOf(AudienceMismatchError);
+    ).rejects.toMatchObject({ name: "AudienceMismatchError" });
   });
 
   it("throws AudienceMismatchError when aud is not a string or string array", async () => {
@@ -201,7 +196,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("malformed-audience"))
-    ).rejects.toBeInstanceOf(AudienceMismatchError);
+    ).rejects.toMatchObject({ name: "AudienceMismatchError" });
   });
 
   it("checks exp before nbf, issuer, and audience", async () => {
@@ -221,7 +216,7 @@ describe("validateToken claim validation", () => {
 
     await expect(
       validateToken(token, optionsFor("claim-order"))
-    ).rejects.toBeInstanceOf(TokenExpiredError);
+    ).rejects.toMatchObject({ name: "TokenExpiredError" });
   });
 });
 

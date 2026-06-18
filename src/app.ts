@@ -3,14 +3,11 @@ import express, {
   type Request,
   type Response
 } from "express";
-import {
-  JwtValidationError,
-  validateToken,
-  type JwtPayload,
-  type ValidateTokenOptions
-} from "./index.js";
+import { validateToken } from "./index.js";
 
 const ROLES_CLAIM = "https://example.com/roles";
+type ValidateTokenOptions = Parameters<typeof validateToken>[1];
+type JwtPayload = Awaited<ReturnType<typeof validateToken>>;
 
 export interface AuthenticatedRequest extends Request {
   auth?: JwtPayload;
@@ -106,8 +103,7 @@ export function requireAuth(options: ValidateTokenOptions) {
       req.auth = await validateToken(token, options);
       next();
     } catch (error) {
-      const reason =
-        error instanceof JwtValidationError ? error.name : "JwtValidationError";
+      const reason = error instanceof Error ? error.name : "JwtValidationError";
 
       res.status(401).json({ error: "invalid_token", reason });
     }

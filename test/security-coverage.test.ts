@@ -1,11 +1,8 @@
 import { createHmac, generateKeyPairSync, type JsonWebKey } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  JwksFetchError,
-  UnsupportedAlgorithmError,
-  validateToken,
-  type ValidateTokenOptions
-} from "../src/index.js";
+import { validateToken } from "../src/index.js";
+
+type ValidateTokenOptions = Parameters<typeof validateToken>[1];
 
 describe("validateToken security coverage", () => {
   afterEach(() => {
@@ -22,7 +19,7 @@ describe("validateToken security coverage", () => {
 
     await expect(
       validateToken(hs256Token("rs256-key"), optionsFor("hs256-rejected"))
-    ).rejects.toBeInstanceOf(UnsupportedAlgorithmError);
+    ).rejects.toMatchObject({ name: "UnsupportedAlgorithmError" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -38,7 +35,7 @@ describe("validateToken security coverage", () => {
 
     await expect(
       validateToken(unsignedRs256Token("key-1"), optionsFor("bad-json"))
-    ).rejects.toBeInstanceOf(JwksFetchError);
+    ).rejects.toMatchObject({ name: "JwksFetchError" });
   });
 
   it("throws JwksFetchError when the JWKS response does not contain a keys array", async () => {
@@ -46,7 +43,7 @@ describe("validateToken security coverage", () => {
 
     await expect(
       validateToken(unsignedRs256Token("key-1"), optionsFor("bad-shape"))
-    ).rejects.toBeInstanceOf(JwksFetchError);
+    ).rejects.toMatchObject({ name: "JwksFetchError" });
   });
 
   it("throws JwksFetchError before fetching when the JWKS cache TTL is invalid", async () => {
@@ -58,7 +55,7 @@ describe("validateToken security coverage", () => {
         ...optionsFor("bad-ttl"),
         jwksCacheTtlSeconds: -1
       })
-    ).rejects.toBeInstanceOf(JwksFetchError);
+    ).rejects.toMatchObject({ name: "JwksFetchError" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -44,7 +44,7 @@ const payload = await validateToken(token, {
 });
 ```
 
-`validateToken` returns the decoded payload only after every validation step succeeds. Any failure throws a typed error class.
+`validateToken` returns the decoded payload only after every validation step succeeds. Any failure throws an error with a stable validation error name.
 
 ### Options
 
@@ -91,7 +91,7 @@ Cache behavior:
 
 - First request for a `jwksUri`: fetch JWKS and cache usable RS256 signing keys.
 - Same `kid` within TTL: use the cached key without an HTTP request.
-- Unknown `kid` with a fresh cache: refetch once to allow normal key rotation, then throw `UnknownKeyError` if the key is still missing.
+- Unknown `kid` with a fresh cache: refetch once to allow normal key rotation, then throw `UnknownKeyError` if the key is still missing. Repeated unknown-`kid` misses are cooldown-limited so an attacker cannot force a JWKS fetch on every request.
 - Expired cache: fetch JWKS again before resolving the key.
 - Fetch failure or malformed JWKS: throw `JwksFetchError`.
 
@@ -148,9 +148,11 @@ Part 2 tests cover:
 
 ## Submission Notes
 
-This repository currently contains Parts 1 and 2. Later parts should add:
+This repository currently contains all four submission artifacts:
 
-- `RESPONSES.md` for written OAuth2/security answers.
-- `REVIEW.md` for the vulnerability review.
+- `src/index.ts` for Part 1
+- `src/app.ts` for Part 2
+- `RESPONSES.md` for Part 3
+- `REVIEW.md` for Part 4
 
 No secrets or private keys should be committed. Test keys are generated at runtime.

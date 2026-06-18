@@ -8,11 +8,11 @@ import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import { createApp, requireAuth, requireRole } from "../src/app.js";
-import type { ValidateTokenOptions } from "../src/index.js";
 
 const ISSUER = "https://auth.example.com/";
 const AUDIENCE = "https://api.example.com";
 const ROLES_CLAIM = "https://example.com/roles";
+type ValidateTokenOptions = Parameters<typeof requireAuth>[0];
 
 describe("Part 2 authorization layer", () => {
   afterEach(() => {

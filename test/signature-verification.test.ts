@@ -5,11 +5,9 @@ import {
   type KeyObject
 } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  InvalidSignatureError,
-  validateToken,
-  type ValidateTokenOptions
-} from "../src/index.js";
+import { validateToken } from "../src/index.js";
+
+type ValidateTokenOptions = Parameters<typeof validateToken>[1];
 
 describe("validateToken RS256 signature verification", () => {
   afterEach(() => {
@@ -44,7 +42,7 @@ describe("validateToken RS256 signature verification", () => {
 
     await expect(
       validateToken(token, optionsFor("wrong-key"))
-    ).rejects.toBeInstanceOf(InvalidSignatureError);
+    ).rejects.toMatchObject({ name: "InvalidSignatureError" });
   });
 
   it("throws InvalidSignatureError when the payload is tampered after signing", async () => {
@@ -63,7 +61,7 @@ describe("validateToken RS256 signature verification", () => {
 
     await expect(
       validateToken(tamperedToken, optionsFor("tampered"))
-    ).rejects.toBeInstanceOf(InvalidSignatureError);
+    ).rejects.toMatchObject({ name: "InvalidSignatureError" });
   });
 });
 
