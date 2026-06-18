@@ -1,0 +1,20 @@
+{
+  "name": "bonterra-oauth2-take-home",
+  "version": "0.1.0",
+  "description": "OAuth2 and API security take-home assessment",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}
