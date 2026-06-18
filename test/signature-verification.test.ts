@@ -21,7 +21,8 @@ describe("validateToken RS256 signature verification", () => {
     const payload = {
       sub: "user_123",
       iss: "https://auth.example.com/",
-      aud: "https://api.example.com"
+      aud: "https://api.example.com",
+      exp: Math.floor(Date.now() / 1000) + 300
     };
     const token = signToken(keyPair.privateKey, "valid-key", payload);
 

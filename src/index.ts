@@ -41,6 +41,7 @@ interface ParsedToken {
 }
 
 const ALLOWED_ALGORITHMS = new Set(["RS256"]);
+const DEFAULT_CLOCK_SKEW_SECONDS = 30;
 const DEFAULT_JWKS_CACHE_TTL_SECONDS = 300;
 const jwksCache = new Map<string, CachedJwks>();
 
@@ -73,6 +74,7 @@ export async function validateToken(
   assertSupportedAlgorithm(parsedToken.header);
   const key = await resolveJwksKey(parsedToken.header, options);
   verifySignature(parsedToken, key);
+  validateClaims(parsedToken.payload, options);
 
   return parsedToken.payload;
 }
@@ -293,6 +295,82 @@ function verifySignature(parsedToken: ParsedToken, key: KeyObject): void {
 
     throw new InvalidSignatureError("JWT signature could not be verified");
   }
+}
+
+function validateClaims(
+  payload: JwtPayload,
+  options: ValidateTokenOptions
+): void {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const clockSkewSeconds =
+    options.clockSkewSeconds ?? DEFAULT_CLOCK_SKEW_SECONDS;
+
+  if (!Number.isFinite(clockSkewSeconds) || clockSkewSeconds < 0) {
+    throw new TokenExpiredError("Clock skew must be a non-negative number");
+  }
+
+  validateExpiration(payload.exp, nowSeconds, clockSkewSeconds);
+  validateNotBefore(payload.nbf, nowSeconds, clockSkewSeconds);
+  validateIssuer(payload.iss, options.issuer);
+  validateAudience(payload.aud, options.audience);
+}
+
+function validateExpiration(
+  exp: unknown,
+  nowSeconds: number,
+  clockSkewSeconds: number
+): void {
+  if (typeof exp !== "number" || !Number.isFinite(exp)) {
+    throw new TokenExpiredError("JWT exp claim must be a number");
+  }
+
+  if (exp < nowSeconds - clockSkewSeconds) {
+    throw new TokenExpiredError("JWT is expired");
+  }
+}
+
+function validateNotBefore(
+  nbf: unknown,
+  nowSeconds: number,
+  clockSkewSeconds: number
+): void {
+  if (nbf === undefined) {
+    return;
+  }
+
+  if (typeof nbf !== "number" || !Number.isFinite(nbf)) {
+    throw new TokenNotYetValidError("JWT nbf claim must be a number");
+  }
+
+  if (nbf > nowSeconds + clockSkewSeconds) {
+    throw new TokenNotYetValidError("JWT is not valid yet");
+  }
+}
+
+function validateIssuer(iss: unknown, expectedIssuer: string): void {
+  if (iss !== expectedIssuer) {
+    throw new IssuerMismatchError("JWT issuer does not match");
+  }
+}
+
+function validateAudience(aud: unknown, expectedAudience: string): void {
+  if (typeof aud === "string") {
+    if (aud !== expectedAudience) {
+      throw new AudienceMismatchError("JWT audience does not match");
+    }
+
+    return;
+  }
+
+  if (Array.isArray(aud) && aud.every((value) => typeof value === "string")) {
+    if (!aud.includes(expectedAudience)) {
+      throw new AudienceMismatchError("JWT audience does not match");
+    }
+
+    return;
+  }
+
+  throw new AudienceMismatchError("JWT audience must be a string or string array");
 }
 
 function parseJsonObject<T extends Record<string, unknown>>(
