@@ -1,4 +1,9 @@
-import { createPublicKey, type JsonWebKey, type KeyObject } from "node:crypto";
+import {
+  createPublicKey,
+  createVerify,
+  type JsonWebKey,
+  type KeyObject
+} from "node:crypto";
 
 export interface ValidateTokenOptions {
   jwksUri: string;
@@ -67,11 +72,9 @@ export async function validateToken(
   const parsedToken = parseToken(token);
   assertSupportedAlgorithm(parsedToken.header);
   const key = await resolveJwksKey(parsedToken.header, options);
-  void key;
+  verifySignature(parsedToken, key);
 
-  throw new InvalidSignatureError(
-    "Signature verification has not been implemented yet"
-  );
+  return parsedToken.payload;
 }
 
 function parseToken(token: string): ParsedToken {
@@ -272,6 +275,24 @@ function isUsableRs256Jwk(key: JwksKey): key is JwksKey & { kid: string } {
   }
 
   return true;
+}
+
+function verifySignature(parsedToken: ParsedToken, key: KeyObject): void {
+  try {
+    const verifier = createVerify("RSA-SHA256");
+    verifier.update(parsedToken.signingInput, "utf8");
+    verifier.end();
+
+    if (!verifier.verify(key, parsedToken.signature)) {
+      throw new InvalidSignatureError("JWT signature is invalid");
+    }
+  } catch (error) {
+    if (error instanceof InvalidSignatureError) {
+      throw error;
+    }
+
+    throw new InvalidSignatureError("JWT signature could not be verified");
+  }
 }
 
 function parseJsonObject<T extends Record<string, unknown>>(
